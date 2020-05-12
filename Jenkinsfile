@@ -1,52 +1,74 @@
- pipeline {
+pipeline {
     agent any
 
-    tools{
-       maven 'localmaven' 
+    environment {
+        GIT_URL = 'git@github.com:FendiJatmiko/springboot-fundnesia.git'
+        AWS_REGION = 'ap-southeast-1'
+        DOCKER_REGISTRY = 'https://index.docker.io/v1/'
+        ECS_CLUSTER_NAME = 'fundnesia'
+
     }
+
     stages {
-        stage('Build') { 
+
+        stage('checkout') {
             steps {
-               sh 'mvn clean install' 
+                deleteDir()
+                git branch: 'master',
+                        url: "${GIT_URL}"
             }
-            post {
-               success {
-                    echo 'Now Archiving...'
-                   }
-              } 
-          }
+        }
 
-        stage('Stagging') { 
+        stage('prepare environment') {
             steps {
-               sh 'elease:prepare release:perform' 
+                script {
+                    DOCKER_IMAGE_NAME = sh(
+                        returnStdout: true,
+                        script: 'cat docker-compose.yml | docker run -i --rm fendijatmiko/spring-boot get -r .services.spring-boot.image'
+                    ).trim()
+
+                    DOCKER_IMAGE_AND_TAG = "${DOCKER_IMAGE_NAME}:v_${BUILD_NUMBER}"
+
+                    echo " === updating tag in docker-compose.yml === "
+                    sh "cat docker-compose.yml | docker run -i --rm fendijatmiko/spring-boot set .services.spring-boot.image \\\"${DOCKER_IMAGE_AND_TAG}\\\" | tee upd-docker-compose.yml"
+                }
             }
-            post {
-               success {
-                    ////
-                   }
-              } 
-          }
+        }
 
-      /*stage('NonProd-Deliver') {*/
-          /*steps {*/
-               /*/**/
-               /*You can extract the version from pom.xml,replace you project location in jenkins workspace in the below command*/
-               /**/*/
-               /*sh 'version=$(echo -e 'setns x=http://maven.apache.org/POM/4.0.0\ncat /x:project/x:version/text()' | xmllint --shell ${YOUR_PROJECT_LOCATION}/pom.xml | grep -v /)'*/
-               /*sh 'scp -v -o StrictHostKeyChecking=no  -i /var/lib/jenkins/secrets/mykey target/*.jar ubuntu@00.00.00.00:/home/ubuntu/SNAPSHOT/${version}'*/
-               /*sh "sshpass -p password ssh -o StrictHostKeyChecking=no -i /var/lib/jenkins/secrets/mykey ubuntu@00.00.00.00 '/home/ubuntu/start.sh nonprod $version'"*/
-          /*}*/
-      /*}*/
 
-       stage('Production') {
-        steps {
-              /*
-               For production release you should pass the version as a parameter to your jenkins pipeline which is going to be in production
-               */
-             sh 'scp -v -o StrictHostKeyChecking=no  -i /var/lib/jenkins/secrets/mykey target/*.jar ubuntu@00.00.00.00:/home/ubuntu/RELEASE/${version} '
-             sh "sshpass -p password ssh -o StrictHostKeyChecking=no -i /var/lib/jenkins/secrets/mykey ubuntu@00.00.00.00 '/home/ubuntu/start.sh prod ${version}'"
+        stage('build jar') {
+            steps {
+                sh 'mvn clean package'
+            }
+        }
+
+        stage('build docker image') {
+            steps {
+                script {
+                    docker.withRegistry("${DOCKER_REGISTRY}") {
+                        container = docker.build("${DOCKER_IMAGE_AND_TAG}")
+                        container.push()
+                    }
+                }
+            }
+        }
+
+        stage('deploy to ecs') {
+            steps {
+                sh '''#!/bin/sh -e
+
+                    echo " === Configuring ecs-cli ==="
+                    /usr/local/bin/ecs-cli configure --region ${AWS_REGION} --cluster ${ECS_CLUSTER_NAME}
+
+                    echo " === Create/Update Service === "
+                    /usr/local/bin/ecs-cli compose --file upd-docker-compose.yml service up \
+                    --deployment-min-healthy-percent 0 \
+                    --container-name spring-boot-fundnesia \
+                    --container-port 8000 \
+
+                ''' // end shell script
+            }
         }
     }
 
-}
 }
