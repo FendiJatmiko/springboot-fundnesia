@@ -10,4 +10,4 @@ build-all:
 	docker-compose build
 
 run: 
-	docker-compose up
+	docker-compose up -d
