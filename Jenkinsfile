@@ -7,7 +7,6 @@ pipeline {
       }
       steps {
         echo 'Deploying apps spring-boot....'
-        sh 'mvn clean install'
         sh 'docker build -t fendijatmiko/springboot:${BUILD_NUMBER} .'
         sh 'docker push fendijatmiko/springboot:${BUILD_NUMBER}'
         sh 'docker-compose up -d'
