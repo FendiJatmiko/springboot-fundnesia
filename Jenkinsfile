@@ -7,7 +7,7 @@ pipeline {
       }
       steps {
         echo 'Deploying apps spring-boot....'
-        sh 'docker build -t fendijatmiko/springboot:${BUILD_NUMBER} .'
+        sh 'docker build --no-cache -t fendijatmiko/springboot:${BUILD_NUMBER} .'
         sh 'docker push fendijatmiko/springboot:${BUILD_NUMBER}'
         sh 'docker-compose up -d'
       }
