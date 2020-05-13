@@ -12,7 +12,7 @@ public class HelloController {
 	
 	@RequestMapping(value = "/test", method = RequestMethod.GET)
 	public String test() {
-		return "This is simple spring boot apps to show the current date: " + new Date();
+		return "SPRINGBOOT,, proof that the CI/CD is working..... " + new Date();
 	}
 
 }
