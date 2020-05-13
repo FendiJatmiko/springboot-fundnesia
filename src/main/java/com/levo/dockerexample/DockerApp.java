@@ -1,12 +1,11 @@
-package com.springbootdev.fendi.api;
+package com.levo.dockerexample;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
-public class SpringBootRestApiDockerApplication {
-
+public class DockerApp {
 	public static void main(String[] args) {
-		SpringApplication.run(SpringBootRestApiDockerApplication.class, args);
+		SpringApplication.run(DockerApp.class, args);
 	}
 }
